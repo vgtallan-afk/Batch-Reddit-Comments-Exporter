@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Batch Reddit Comments Exporter</title>
+  <meta name="description" content="Paste multiple Reddit thread links and export all comments into one CSV, TXT, JSON, or Excel-compatible file." />
+  <style>
+    :root {
+      --bg: #0b0b0d;
+      --card: #151519;
+      --card-2: #1d1d23;
+      --border: #2c2c35;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --soft: #71717a;
+      --accent: #ff4500;
+      --accent-2: #ff7a45;
+      --good: #22c55e;
+      --bad: #ef4444;
+      --warn: #f59e0b;
+      --shadow: 0 24px 80px rgba(0,0,0,.45);
+      --radius: 22px;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(255,69,0,.18), transparent 36rem),
+        radial-gradient(circle at bottom right, rgba(255,122,69,.11), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+    a { color: inherit; }
+    .wrap { width: min(1120px, calc(100vw - 32px)); margin: 0 auto; padding: 42px 0 64px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 38px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: -.03em; }
+    .logo {
+      width: 42px; height: 42px; border-radius: 14px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 16px 40px rgba(255,69,0,.22);
+      font-weight: 900;
+    }
+    .badge {
+      border: 1px solid rgba(255,255,255,.11);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .hero { margin-bottom: 26px; }
+    h1 {
+      margin: 0 0 12px;
+      max-width: 850px;
+      font-size: clamp(36px, 7vw, 76px);
+      line-height: .94;
+      letter-spacing: -.06em;
+    }
+    .hero p { margin: 0; max-width: 720px; color: var(--muted); font-size: clamp(16px, 2vw, 20px); }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 22px; align-items: start; }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-pad { padding: 22px; }
+    label { display: block; font-weight: 700; margin: 0 0 8px; }
+    textarea, input, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #09090b;
+      color: var(--text);
+      border-radius: 16px;
+      padding: 14px 16px;
+      font: inherit;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    textarea { min-height: 240px; resize: vertical; }
+    textarea:focus, input:focus, select:focus { border-color: rgba(255,69,0,.7); box-shadow: 0 0 0 4px rgba(255,69,0,.12); }
+    .hint { color: var(--soft); font-size: 13px; margin-top: 8px; }
+    .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+    .checkline { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0; color: var(--muted); font-size: 14px; }
+    .checkline input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); }
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 18px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .15s, opacity .15s, background .15s;
+    }
+    button:hover { transform: translateY(-1px); background: #ff5a1f; }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    .secondary { background: #27272f; color: var(--text); }
+    .secondary:hover { background: #33333d; }
+    .danger { background: rgba(239,68,68,.18); color: #fecaca; border: 1px solid rgba(239,68,68,.25); }
+    .danger:hover { background: rgba(239,68,68,.25); }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .stat { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 16px; }
+    .stat b { display: block; font-size: 28px; letter-spacing: -.04em; }
+    .stat span { color: var(--soft); font-size: 13px; }
+    .status { margin-top: 16px; display: grid; gap: 10px; }
+    .status-line { display: flex; justify-content: space-between; gap: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); color: var(--muted); font-size: 14px; }
+    .status-line strong { color: var(--text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ok { color: #86efac; }
+    .err { color: #fca5a5; }
+    .warn { color: #fcd34d; }
+    .downloads { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin-top: 18px; }
+    .downloads button { background: #fff; color: #09090b; }
+    .downloads button:hover { background: #e4e4e7; }
+    .tablewrap { margin-top: 22px; max-height: 440px; overflow: auto; border-radius: 18px; border: 1px solid rgba(255,255,255,.09); }
+    table { width: 100%; border-collapse: collapse; min-width: 920px; background: #101014; font-size: 13px; }
+    th, td { padding: 11px 12px; border-bottom: 1px solid rgba(255,255,255,.07); text-align: left; vertical-align: top; }
+    th { position: sticky; top: 0; z-index: 1; background: #18181d; color: #e4e4e7; }
+    td { color: var(--muted); }
+    .small { font-size: 13px; color: var(--soft); }
+    .notice { margin-top: 18px; padding: 14px 16px; border-radius: 16px; border: 1px solid rgba(245,158,11,.28); background: rgba(245,158,11,.09); color: #fde68a; font-size: 14px; }
+    footer { color: var(--soft); font-size: 13px; margin-top: 28px; }
+    @media (max-width: 880px) {
+      .grid, .row, .downloads, .stats { grid-template-columns: 1fr; }
+      header { align-items: flex-start; flex-direction: column; }
+      textarea { min-height: 210px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand"><div class="logo">r/</div><div>Batch Reddit Comments Exporter</div></div>
+      <div class="badge">No Chrome extension • Vercel API included</div>
+    </header>
+
+    <section class="hero">
+      <h1>Paste vários links do Reddit. Baixe todos os comentários em um arquivo.</h1>
+      <p>Cole uma lista de threads/postagens do Reddit, uma por linha. A ferramenta busca os comentários em lote e junta tudo em CSV, TXT, JSON ou Excel.</p>
+    </section>
+
+    <main class="grid">
+      <section class="card card-pad">
+        <form id="scrapeForm">
+          <label for="urls">Reddit thread URLs</label>
+          <textarea id="urls" placeholder="https://www.reddit.com/r/AskReddit/comments/abc123/title/&#10;https://redd.it/xyz789&#10;https://www.reddit.com/r/subreddit/comments/def456/title/"></textarea>
+          <div class="hint">Aceita links do tipo reddit.com/r/.../comments/ID/... ou redd.it/ID. Um por linha.</div>
+
+          <div class="row">
+            <div>
+              <label for="sort">Sort</label>
+              <select id="sort">
+                <option value="confidence">Best / confidence</option>
+                <option value="top">Top</option>
+                <option value="new">New</option>
+                <option value="old">Old</option>
+                <option value="controversial">Controversial</option>
+                <option value="qa">Q&A</option>
+              </select>
+            </div>
+            <div>
+              <label for="maxRows">Max comments per thread</label>
+              <input id="maxRows" type="number" min="1" max="50000" placeholder="optional, e.g. 5000" />
+            </div>
+          </div>
+
+          <label class="checkline">
+            <input id="deepMode" type="checkbox" />
+            <span><b>Tentar expandir “more comments”</b><br />Mais completo, mas mais lento e pode bater limite/timeout em threads enormes.</span>
+          </label>
+
+          <div class="row" id="deepOptions" style="display:none;">
+            <div>
+              <label for="moreBatches">More batches per thread</label>
+              <input id="moreBatches" type="number" min="1" max="100" value="20" />
+            </div>
+            <div>
+              <label for="delayMs">Delay between threads (ms)</label>
+              <input id="delayMs" type="number" min="0" max="10000" value="800" />
+            </div>
+          </div>
+
+          <div class="btns">
+            <button id="startBtn" type="submit">Start batch export</button>
+            <button id="stopBtn" type="button" class="danger" disabled>Stop</button>
+            <button id="clearBtn" type="button" class="secondary">Clear</button>
+          </div>
+        </form>
+        <div class="notice">Para posts privados, removidos, NSFW bloqueados ou subs privados, o Reddit pode negar o acesso. O export só inclui conteúdo que a API pública retorna.</div>
+      </section>
+
+      <aside class="card card-pad">
+        <div class="stats">
+          <div class="stat"><b id="statThreads">0</b><span>threads processed</span></div>
+          <div class="stat"><b id="statComments">0</b><span>comments loaded</span></div>
+          <div class="stat"><b id="statMore">0</b><span>more blocks left</span></div>
+          <div class="stat"><b id="statErrors">0</b><span>errors</span></div>
+        </div>
+
+        <div class="downloads">
+          <button data-download="csv" disabled>Download CSV</button>
+          <button data-download="txt" disabled>Download TXT</button>
+          <button data-download="json" disabled>Download JSON</button>
+          <button data-download="xls" disabled>Download Excel</button>
+        </div>
+
+        <div class="status" id="status"></div>
+      </aside>
+    </main>
+
+    <section id="results" class="card card-pad" style="display:none; margin-top:22px;">
+      <h2 style="margin:0 0 8px;">Preview</h2>
+      <p class="small" style="margin:0 0 14px;">Mostrando só os primeiros 100 comentários para não travar o navegador. O download inclui todos carregados.</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Thread</th>
+              <th>Subreddit</th>
+              <th>Author</th>
+              <th>Score</th>
+              <th>Date</th>
+              <th>Depth</th>
+              <th>Comment</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Built for Vercel. API route: <code>/api/reddit-comments</code>. Use responsibly and respect Reddit's rules for deleted/private content.
+    </footer>
+  </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const form = $('scrapeForm');
+  const urlsEl = $('urls');
+  const sortEl = $('sort');
+  const maxRowsEl = $('maxRows');
+  const deepModeEl = $('deepMode');
+  const deepOptionsEl = $('deepOptions');
+  const moreBatchesEl = $('moreBatches');
+  const delayMsEl = $('delayMs');
+  const startBtn = $('startBtn');
+  const stopBtn = $('stopBtn');
+  const clearBtn = $('clearBtn');
+  const statusEl = $('status');
+  const resultsEl = $('results');
+  const previewBody = $('previewBody');
+  const downloadButtons = [...document.querySelectorAll('[data-download]')];
+
+  let allComments = [];
+  let threadSummaries = [];
+  let stopped = false;
+
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  function splitUrls(raw) {
+    return [...new Set(raw
+      .split(/[\n\r]+/)
+      .map(x => x.trim())
+      .filter(Boolean))];
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function csvEscape(value) {
+    const s = String(value ?? '');
+    return /[",\n\r;]/.test(s) ? '"' + s.replaceAll('"', '""') + '"' : s;
+  }
+
+  function parseFilenameDate() {
+    return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  }
+
+  function downloadBlob(filename, content, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function toExportRows() {
+    return allComments.map((c, index) => ({
+      row: index + 1,
+      source_url: c.source_url || '',
+      thread_id: c.thread_id || '',
+      thread_title: c.thread_title || '',
+      subreddit: c.subreddit || '',
+      comment_id: c.id || '',
+      parent_id: c.parent_id || '',
+      author: c.author || '',
+      score: c.score ?? '',
+      created_utc: c.created_utc || '',
+      created_date: c.created_date || '',
+      depth: c.depth ?? '',
+      permalink: c.permalink || '',
+      body: c.body || '',
+      body_html: c.body_html || ''
+    }));
+  }
+
+  function downloadCSV() {
+    const rows = toExportRows();
+    const headers = Object.keys(rows[0] || { row: '', source_url: '', thread_id: '', thread_title: '', subreddit: '', comment_id: '', parent_id: '', author: '', score: '', created_utc: '', created_date: '', depth: '', permalink: '', body: '', body_html: '' });
+    const csv = [headers.join(','), ...rows.map(row => headers.map(h => csvEscape(row[h])).join(','))].join('\n');
+    downloadBlob(`reddit-comments-batch-${parseFilenameDate()}.csv`, '\ufeff' + csv, 'text/csv;charset=utf-8');
+  }
+
+  function downloadTXT() {
+    const txt = allComments.map((c, i) => {
+      return [
+        `#${i + 1}`,
+        `Thread: ${c.thread_title || c.thread_id || ''}`,
+        `URL: ${c.source_url || ''}`,
+        `Subreddit: ${c.subreddit || ''}`,
+        `Author: ${c.author || ''}`,
+        `Score: ${c.score ?? ''}`,
+        `Date: ${c.created_date || ''}`,
+        `Depth: ${c.depth ?? ''}`,
+        `Permalink: ${c.permalink || ''}`,
+        '',
+        c.body || '',
+        '\n---\n'
+      ].join('\n');
+    }).join('\n');
+    downloadBlob(`reddit-comments-batch-${parseFilenameDate()}.txt`, txt, 'text/plain;charset=utf-8');
+  }
+
+  function downloadJSON() {
+    downloadBlob(`reddit-comments-batch-${parseFilenameDate()}.json`, JSON.stringify({ exported_at: new Date().toISOString(), total_comments: allComments.length, threads: threadSummaries, comments: allComments }, null, 2), 'application/json;charset=utf-8');
+  }
+
+  function downloadXLS() {
+    const rows = toExportRows();
+    const headers = Object.keys(rows[0] || { row: '', source_url: '', thread_id: '', thread_title: '', subreddit: '', comment_id: '', parent_id: '', author: '', score: '', created_utc: '', created_date: '', depth: '', permalink: '', body: '', body_html: '' });
+    const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><table><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map(h => `<td>${escapeHtml(row[h])}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
+    downloadBlob(`reddit-comments-batch-${parseFilenameDate()}.xls`, html, 'application/vnd.ms-excel;charset=utf-8');
+  }
+
+  function updateStats() {
+    $('statThreads').textContent = String(threadSummaries.length);
+    $('statComments').textContent = allComments.length.toLocaleString();
+    $('statMore').textContent = threadSummaries.reduce((sum, t) => sum + Number(t.more_count || 0), 0).toLocaleString();
+    $('statErrors').textContent = threadSummaries.filter(t => t.error).length.toLocaleString();
+    downloadButtons.forEach(btn => btn.disabled = allComments.length === 0);
+  }
+
+  function addStatus(url, message, cls = '') {
+    const div = document.createElement('div');
+    div.className = 'status-line';
+    div.innerHTML = `<strong title="${escapeHtml(url)}">${escapeHtml(shortUrl(url))}</strong><span class="${cls}">${escapeHtml(message)}</span>`;
+    statusEl.prepend(div);
+  }
+
+  function shortUrl(url) {
+    try {
+      const u = new URL(url);
+      return u.hostname.replace('www.', '') + u.pathname.replace(/\/$/, '').slice(0, 58);
+    } catch {
+      return String(url).slice(0, 72);
+    }
+  }
+
+  function renderPreview() {
+    if (!allComments.length) {
+      resultsEl.style.display = 'none';
+      previewBody.innerHTML = '';
+      return;
+    }
+    resultsEl.style.display = 'block';
+    previewBody.innerHTML = allComments.slice(0, 100).map(c => `
+      <tr>
+        <td>${escapeHtml(c.thread_title || c.thread_id || '')}</td>
+        <td>${escapeHtml(c.subreddit || '')}</td>
+        <td>${escapeHtml(c.author || '')}</td>
+        <td>${escapeHtml(c.score ?? '')}</td>
+        <td>${escapeHtml(c.created_date || '')}</td>
+        <td>${escapeHtml(c.depth ?? '')}</td>
+        <td>${escapeHtml((c.body || '').slice(0, 500))}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function fetchThread(url) {
+    const maxRows = Number(maxRowsEl.value || 0);
+    const body = {
+      url,
+      sort: sortEl.value,
+      maxRows: Number.isFinite(maxRows) && maxRows > 0 ? maxRows : null,
+      expandMore: deepModeEl.checked,
+      maxMoreBatches: Math.max(0, Math.min(100, Number(moreBatchesEl.value || 0)))
+    };
+    const response = await fetch('/api/reddit-comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `API error ${response.status}`);
+    }
+    return data;
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const urls = splitUrls(urlsEl.value);
+    if (!urls.length) {
+      addStatus('Input', 'Paste at least one Reddit URL', 'err');
+      return;
+    }
+
+    stopped = false;
+    allComments = [];
+    threadSummaries = [];
+    statusEl.innerHTML = '';
+    updateStats();
+    renderPreview();
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+
+    const delay = Math.max(0, Math.min(10000, Number(delayMsEl.value || 0)));
+
+    for (let i = 0; i < urls.length; i++) {
+      if (stopped) break;
+      const url = urls[i];
+      addStatus(url, `Processing ${i + 1}/${urls.length}`, 'warn');
+      try {
+        const data = await fetchThread(url);
+        allComments.push(...data.comments);
+        threadSummaries.push(data.thread);
+        addStatus(url, `${data.comments.length.toLocaleString()} comments`, data.thread.more_count ? 'warn' : 'ok');
+      } catch (error) {
+        threadSummaries.push({ source_url: url, error: error.message, more_count: 0 });
+        addStatus(url, error.message || 'Failed', 'err');
+      }
+      updateStats();
+      renderPreview();
+      if (i < urls.length - 1 && delay) await sleep(delay);
+    }
+
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    addStatus('Batch', stopped ? 'Stopped by user' : 'Finished', stopped ? 'warn' : 'ok');
+  });
+
+  stopBtn.addEventListener('click', () => {
+    stopped = true;
+    stopBtn.disabled = true;
+  });
+
+  clearBtn.addEventListener('click', () => {
+    urlsEl.value = '';
+    allComments = [];
+    threadSummaries = [];
+    statusEl.innerHTML = '';
+    updateStats();
+    renderPreview();
+  });
+
+  deepModeEl.addEventListener('change', () => {
+    deepOptionsEl.style.display = deepModeEl.checked ? 'grid' : 'none';
+  });
+
+  downloadButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const kind = btn.dataset.download;
+      if (kind === 'csv') downloadCSV();
+      if (kind === 'txt') downloadTXT();
+      if (kind === 'json') downloadJSON();
+      if (kind === 'xls') downloadXLS();
+    });
+  });
+
+  updateStats();
+})();
+</script>
+</body>
+</html>
